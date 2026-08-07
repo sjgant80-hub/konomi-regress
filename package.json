@@ -1,0 +1,14 @@
+{
+  "name": "konomi-regress",
+  "version": "0.1.0",
+  "description": "Compare two model-evaluation runs, or be refused: admissibility enforced, movement paired item-by-item, per-axis regressions surfaced, and an exact sign test.",
+  "type": "module",
+  "main": "compare.mjs",
+  "exports": { ".": "./compare.mjs", "./run": "./run.mjs", "./gate": "./gate.mjs", "./fold": "./fold.mjs" },
+  "files": ["run.mjs", "compare.mjs", "gate.mjs", "fold.mjs", "README.md", "LICENSE"],
+  "scripts": { "test": "node test.mjs" },
+  "keywords": ["llm-evaluation", "regression-testing", "model-comparison", "sign-test", "mutation-testing"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/sjgant80-hub/konomi-regress.git" },
+  "homepage": "https://sjgant80-hub.github.io/konomi-regress/"
+}

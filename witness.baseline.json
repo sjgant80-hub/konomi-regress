@@ -1,0 +1,32 @@
+[
+  {
+    "mutation": "< → <=",
+    "snippet": "let rem = typeof n === 'bigint' ? (n < 0n ? -n : n) : BigInt(Math.floor(Math.abs(Number(n)",
+    "reason": "fold.mjs:53 — BigInt has no signed zero: at n === 0n the negation branch yields -0n which is === 0n, so widening the comparison selects a different branch with an identical value."
+  },
+  {
+    "mutation": "< → <=",
+    "snippet": "if (rem < 1n) return S;",
+    "reason": "fold.mjs:54 — At rem === 1n the mutant returns the zero state immediately; the original falls through, finds no spine prime dividing 1, and returns that same zero state because rem === 1n. Same output on the only differing input."
+  },
+  {
+    "mutation": "=== → !==",
+    "snippet": "//   that loses NOTHING — vector(number(v)) === v, always.",
+    "reason": "fold.mjs:18 — The mutated text is inside a comment and has no executable effect."
+  },
+  {
+    "mutation": "> → >=",
+    "snippet": "if (p > 1) p = 1;                            // improved === regressed gives a doubled hal",
+    "reason": "compare.mjs:71 — Differs only when p is exactly 1, where the assignment p = 1 is idempotent — no input can distinguish the two."
+  },
+  {
+    "mutation": "=== → !==",
+    "snippet": "if (p > 1) p = 1;                            // improved === regressed gives a doubled hal",
+    "reason": "compare.mjs:71 — The mutated text is inside the trailing comment on that line and has no executable effect."
+  },
+  {
+    "mutation": "> → >=",
+    "snippet": "if (cmp.paired > 0 && movedFraction < o.minMovedFraction) {",
+    "reason": "gate.mjs:75 — cmp.paired is always at least 1: makeRun rejects an empty item list, and compare throws when the intersection is empty. The guard is never reached with zero, so widening it changes nothing observable."
+  }
+]

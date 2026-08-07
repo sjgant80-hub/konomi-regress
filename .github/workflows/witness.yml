@@ -1,0 +1,46 @@
+name: witness
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
+  workflow_dispatch:
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: test suite
+        run: node test.mjs
+
+      # The axes are vendored from konomi-rubric, which is canonical. Fetch the real thing and fail if
+      # they have drifted — a copied list that silently diverges is the failure mode this guards.
+      - name: axis drift check against konomi-rubric
+        run: |
+          set -e
+          if curl -fsSL -o /tmp/rubric.mjs https://raw.githubusercontent.com/sjgant80-hub/konomi-rubric/main/rubric.mjs; then
+            node -e "
+              const fs=require('fs');
+              const canonical=[...fs.readFileSync('/tmp/rubric.mjs','utf8').matchAll(/key: '([a-z]+)',\s+name:/g)].map(m=>m[1]);
+              const mine=fs.readFileSync('compare.mjs','utf8')
+                .match(/export const AXES = Object\.freeze\(\[([^\]]+)\]/)[1]
+                .match(/'([a-z]+)'/g).map(s=>s.replace(/'/g,''));
+              if(JSON.stringify(canonical)!==JSON.stringify(mine)){
+                console.error('AXIS DRIFT\n  canonical:',canonical.join(','),'\n  vendored :',mine.join(','));
+                process.exit(1);
+              }
+              console.log('axes match konomi-rubric:',mine.join(', '));
+            "
+          else
+            echo "::warning::could not reach konomi-rubric — drift check skipped, not failed"
+          fi
+
+      # v0.2, not v0.1: reviewed-equivalent baselines were added after v0.1 was tagged.
+      # Cap must exceed each file's mutant count or "clean" is a truncation artifact (highest here: 32).
+      - name: mutation gate
+        uses: sjgant80-hub/witness@v0.2
+        with:
+          files: 'fold.mjs run.mjs compare.mjs gate.mjs'
+          test-command: 'node test.mjs'
+          cap: '400'

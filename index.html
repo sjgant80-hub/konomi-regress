@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>konomi-regress · did the checkpoint get better, and where?</title>
+<meta name="description" content="Compare two evaluation runs — or be refused. Admissibility is enforced, movement is paired item-by-item, per-axis regressions are surfaced instead of averaged away, and an exact sign test says whether the movement beats a coin.">
+<style>
+:root{
+  --ink:#12171a; --ink-2:#374449; --ink-3:#657379; --rule:#dbe2e4; --paper:#f7fafa; --raise:#fff;
+  --accent:#1d6b7d; --accent-soft:#e2eef1; --bad:#a33321; --good:#1c6b46; --warn:#8a6a12; --flat:#8d9598;
+  --a0:#8a6d3b; --a1:#2f6f8f; --a2:#6b4c8a; --a3:#1f6b4f; --a4:#a35c2a; --a5:#8a2f4a; --a6:#3b5a8a;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Inter,Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --ink:#e9eff1; --ink-2:#b6c1c5; --ink-3:#7f8c91; --rule:#242e31; --paper:#0f1416; --raise:#161d20;
+  --accent:#5fb6c9; --accent-soft:#122a30; --bad:#e0806b; --good:#63c294; --warn:#d3ab4e; --flat:#6b7679;
+  --a0:#c9a86a; --a1:#79b4d1; --a2:#a98fc9; --a3:#6fbf98; --a4:#d99a68; --a5:#cf7f96; --a6:#8aa5d6;
+}}
+:root[data-theme=dark]{
+  --ink:#e9eff1; --ink-2:#b6c1c5; --ink-3:#7f8c91; --rule:#242e31; --paper:#0f1416; --raise:#161d20;
+  --accent:#5fb6c9; --accent-soft:#122a30; --bad:#e0806b; --good:#63c294; --warn:#d3ab4e; --flat:#6b7679;
+  --a0:#c9a86a; --a1:#79b4d1; --a2:#a98fc9; --a3:#6fbf98; --a4:#d99a68; --a5:#cf7f96; --a6:#8aa5d6;
+}
+:root[data-theme=light]{
+  --ink:#12171a; --ink-2:#374449; --ink-3:#657379; --rule:#dbe2e4; --paper:#f7fafa; --raise:#fff;
+  --accent:#1d6b7d; --accent-soft:#e2eef1; --bad:#a33321; --good:#1c6b46; --warn:#8a6a12; --flat:#8d9598;
+  --a0:#8a6d3b; --a1:#2f6f8f; --a2:#6b4c8a; --a3:#1f6b4f; --a4:#a35c2a; --a5:#8a2f4a; --a6:#3b5a8a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:var(--accent)}
+code,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header{border-bottom:1px solid var(--rule);padding:34px 0 26px;background:var(--raise);position:relative}
+.eyebrow{font:600 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(27px,4.2vw,39px);letter-spacing:-.02em;margin:12px 0 10px;font-weight:650}
+.lede{color:var(--ink-2);max-width:66ch;font-size:17px}
+.theme{position:absolute;top:18px;right:20px;background:none;border:1px solid var(--rule);color:var(--ink-3);border-radius:5px;padding:6px 10px;font:600 11px/1 var(--mono);cursor:pointer}
+.claims{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1px;background:var(--rule);border-block:1px solid var(--rule)}
+.claim{background:var(--paper);padding:18px 20px}
+.claim h3{font-size:13px;margin-bottom:6px}
+.claim p{margin:0;font-size:13.5px;color:var(--ink-3);line-height:1.5}
+nav.tabs{display:flex;gap:2px;border-bottom:1px solid var(--rule);margin-top:30px;flex-wrap:wrap}
+nav.tabs button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;font:600 13px/1 var(--sans);color:var(--ink-3);padding:11px 14px;cursor:pointer}
+nav.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section[hidden]{display:none}
+.panel{padding:26px 0 44px}
+label{display:block;font:600 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+select,input{width:100%;background:var(--raise);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:10px 11px;font:14px/1.55 var(--mono)}
+select:focus,input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:14px}
+.row>div{flex:1;min-width:190px}
+button.go{background:var(--accent);color:var(--raise);border:0;border-radius:6px;padding:11px 18px;font:600 14px/1 var(--sans);cursor:pointer}
+button.ghost{background:none;color:var(--ink-2);border:1px solid var(--rule);border-radius:6px;padding:10px 14px;font:600 13px/1 var(--sans);cursor:pointer}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.reading{margin-top:20px;border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:0 9px 9px 0;background:var(--raise);padding:18px 20px}
+.reading.bad{border-left-color:var(--bad)} .reading.good{border-left-color:var(--good)}
+.reading .k{font:700 10.5px/1 var(--mono);letter-spacing:.1em;color:var(--ink-3)}
+.reading .s{font-size:17px;margin-top:8px;line-height:1.45}
+.refused{margin-top:20px;border:1px solid var(--rule);border-left:3px solid var(--bad);border-radius:0 9px 9px 0;background:var(--raise);padding:18px 20px}
+.refused .k{font:700 10.5px/1 var(--mono);letter-spacing:.1em;color:var(--bad)}
+.refused .s{font-size:14.5px;margin-top:8px;color:var(--ink-2);line-height:1.5}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:9px;overflow:hidden;margin-top:18px}
+.stat{background:var(--raise);padding:14px 12px;text-align:center}
+.stat .n{font:600 24px/1.15 var(--mono)}
+.stat .l{font:600 9.5px/1.3 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-top:5px}
+.up{color:var(--good)} .down{color:var(--bad)} .same{color:var(--flat)}
+.hole{border:1px solid var(--rule);border-left:3px solid var(--bad);border-radius:0 7px 7px 0;padding:12px 14px;margin-top:9px;background:var(--raise)}
+.hole.warn{border-left-color:var(--warn)}
+.hole .kind{font:700 10.5px/1 var(--mono);letter-spacing:.09em;color:var(--bad)}
+.hole.warn .kind{color:var(--warn)}
+.hole .d{font-size:13.5px;color:var(--ink-2);margin-top:5px}
+.clean{border:1px solid var(--rule);border-left:3px solid var(--good);border-radius:0 7px 7px 0;padding:14px;background:var(--raise);color:var(--good);font-weight:600;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:600 10px/1.3 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.bar{height:8px;border-radius:4px;background:var(--rule);position:relative;min-width:60px}
+.bar i{position:absolute;top:0;bottom:0;border-radius:4px;display:block}
+.scroll{overflow-x:auto}
+.note{font-size:13px;color:var(--ink-3);margin-top:10px;max-width:74ch}
+footer{border-top:1px solid var(--rule);padding:26px 0 46px;color:var(--ink-3);font-size:13px;margin-top:20px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <button class="theme" id="theme">THEME</button>
+    <div class="eyebrow">konomi-regress</div>
+    <h1>Did the checkpoint get better — and where did it get worse?</h1>
+    <p class="lede">Almost every model comparison in circulation is invalid: the rubric changed, or the
+      corpus changed, or it compares one aggregate to another. This refuses those outright, pairs the
+      movement item by item, and reports the axis that went backwards instead of averaging it away.</p>
+  </div>
+</header>
+
+<div class="claims">
+  <div class="claim">
+    <h3>Inadmissible comparisons are refused</h3>
+    <p>If the rubric fingerprint or the corpus address differs, there is no number to report. A caveat
+       gets dropped on the way to the summary slide; a refusal does not.</p>
+  </div>
+  <div class="claim">
+    <h3>Net is not the story — churn is</h3>
+    <p>A net of +2 can be fifteen items up and thirteen down. That is instability, not progress, and
+       it will not survive the next checkpoint. Both numbers are always shown.</p>
+  </div>
+  <div class="claim">
+    <h3>"Up overall, down on safety" stays visible</h3>
+    <p>The most dangerous pattern in evaluation is a headline that hides an axis going backwards.
+       Aggregate reporting conceals it by construction. Here it is the first thing said.</p>
+  </div>
+</div>
+
+<div class="wrap">
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="t-cmp" aria-selected="true" aria-controls="p-cmp">Compare two runs</button>
+    <button role="tab" id="t-why" aria-selected="false" aria-controls="p-why">How it works</button>
+  </nav>
+
+  <section class="panel" id="p-cmp" role="tabpanel" aria-labelledby="t-cmp">
+    <p class="note" style="margin-top:0">Six illustrative scenarios against a fictional system. Each is a
+      real shape you meet in evaluation work — including the three that look like progress and are not.</p>
+    <div class="row">
+      <div>
+        <label for="scenario">Scenario</label>
+        <select id="scenario"></select>
+      </div>
+      <button class="go" id="run">Compare</button>
+    </div>
+    <p class="note" id="desc"></p>
+    <div id="out"></div>
+  </section>
+
+  <section class="panel" id="p-why" role="tabpanel" aria-labelledby="t-why" hidden>
+    <h2 style="font-size:19px;margin-bottom:10px">Admissibility</h2>
+    <p class="note" style="margin-top:0;max-width:72ch">A run records the rubric's content fingerprint
+      and a content address of its own corpus. Two runs that disagree on either are not comparable and
+      <code>compare()</code> throws. The corpus check has an explicit opt-in escape
+      (<code>onIntersection</code>) because comparing shared items is often what you want — and it
+      reports exactly which items it dropped, because a comparison that silently narrows its own sample
+      is the same failure wearing a different hat.</p>
+
+    <h2 style="font-size:19px;margin:28px 0 10px">What the gate looks for</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Hole</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">MASKED</td><td>The headline improved while an axis went backwards. Aggregate reporting hides this by construction.</td></tr>
+        <tr><td class="mono">CHURN</td><td>The net is small next to the gross movement — instability reported as progress.</td></tr>
+        <tr><td class="mono">UNDERPOWERED</td><td>Too few items moved for the direction to beat a coin, by an exact two-sided sign test.</td></tr>
+        <tr><td class="mono">NARROW</td><td>Almost nothing moved — the corpus does not discriminate between these versions.</td></tr>
+        <tr><td class="mono">LOPSIDED</td><td>One criterion accounts for most of the movement: a headline wearing a suite's clothes.</td></tr>
+        <tr><td class="mono">DROPPED</td><td>An intersection comparison narrowed the sample. Always reported, never silent.</td></tr>
+        <tr><td class="mono">REGRESSION</td><td>A criterion lost ground on enough items to be real rather than noise.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h2 style="font-size:19px;margin:28px 0 10px">Honest limits</h2>
+    <ul class="note" style="max-width:72ch">
+      <li>The sign test treats items as <b>independent</b>. If your corpus holds ten paraphrases of one
+        prompt they are not, and the p-value is optimistic. That is a property of your corpus and
+        nothing here can detect it.</li>
+      <li>Tails are computed exactly in BigInt, then reported to 1e-12. A smaller tail comes back as
+        <code>0</code> and says so rather than being dressed up as a tiny non-zero number.</li>
+      <li><code>clean</code> means the comparison can be read at face value. It does not mean the model
+        is fine — whether the movement is <em>good</em> is a judgement about the axes, and this has no
+        opinion about that.</li>
+      <li>All figures on this page are <b>illustrative, against a fictional system</b>. Nothing here
+        describes any real model.</li>
+    </ul>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p style="margin:0 0 6px">Pure kernels, no dependencies, no network. Every kernel is mutation-gated in CI.</p>
+    <p style="margin:0"><a href="https://github.com/sjgant80-hub/konomi-regress">Source &amp; verification</a>
+      · grades from <a href="https://sjgant80-hub.github.io/konomi-rubric/">konomi-rubric</a>
+      · red-team corpora from <a href="https://sjgant80-hub.github.io/konomi-redteam/">konomi-redteam</a>
+      · gated by <a href="https://github.com/sjgant80-hub/witness">witness</a> · MIT</p>
+  </div>
+</footer>
+
+<script type="module">
+import { makeRun, summarise } from './run.mjs';
+import { AXES, compare, regressions } from './compare.mjs';
+import { gateComparison, HOLE } from './gate.mjs';
+
+const $ = s => document.querySelector(s);
+const el = (t, c, txt) => { const n = document.createElement(t); if (c) n.className = c; if (txt != null) n.textContent = txt; return n; };
+const FP = 'a1b2c3d4e5f60718';
+const AXC = i => `var(--a${i})`;
+
+$('#theme').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const sysDark = matchMedia('(prefers-color-scheme:dark)').matches;
+  document.documentElement.setAttribute('data-theme', cur ? (cur === 'dark' ? 'light' : 'dark') : (sysDark ? 'light' : 'dark'));
+};
+document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav.tabs button').forEach(x => {
+    const on = x === b; x.setAttribute('aria-selected', String(on));
+    $('#' + x.getAttribute('aria-controls')).hidden = !on;
+  });
+});
+
+// build a run from per-item axis vectors
+const mk = (label, ver, vectors, metFn, fp = FP) => makeRun({
+  label, model: 'example-model-a', modelVersion: ver, rubricFingerprint: fp,
+  items: vectors.map((v, k) => ({ id: 'item-' + k, vector: v, met: metFn ? metFn(v, k) : defaultMet(v) })),
+});
+const defaultMet = v => v.flatMap((n, i) => Array.from({ length: n }, (_, j) => `${AXES[i].slice(0, 3).toUpperCase()}-0${j + 1}`));
+const onAxis = (n, axis, count) => Array.from({ length: n }, () => { const v = [0,0,0,0,0,0,0]; v[axis] = count; return v; });
+
+const SCENARIOS = [
+  {
+    name: 'A genuine improvement',
+    desc: 'Twenty items, every one better, no axis backwards. This is what a real improvement looks like — and it is the only scenario here that passes the gate.',
+    build: () => [mk('v1.0', '1.0', onAxis(20, 2, 1)), mk('v2.0', '2.0', onAxis(20, 2, 2))],
+  },
+  {
+    name: 'Up overall, safety down (MASKED)',
+    desc: 'The headline improves by a comfortable margin while the safety axis goes backwards. This is the pattern aggregate reporting is worst at, and the one that matters most.',
+    build: () => {
+      const before = Array.from({ length: 12 }, (_, k) => { const v = [1,0,0,0,0,2,0]; return v; });
+      const after = Array.from({ length: 12 }, (_, k) => { const v = [4,0,0,0,0,1,0]; return v; });
+      return [mk('v1.0', '1.0', before), mk('v2.0', '2.0', after)];
+    },
+  },
+  {
+    name: 'Unstable, not improved (CHURN)',
+    desc: 'Fifteen items move up, thirteen move down, net +2. Quoted as progress in almost every report that only shows the net. It is noise with a sign on it.',
+    build: () => {
+      const before = onAxis(28, 2, 1);
+      const after = before.map((v, k) => { const w = v.slice(); w[2] = k % 2 === 0 ? 2 : 0; return w; });
+      after[27][2] = 2;
+      return [mk('v1.0', '1.0', before), mk('v2.0', '2.0', after)];
+    },
+  },
+  {
+    name: 'Too small to tell (UNDERPOWERED)',
+    desc: 'Three items up, one down. It reads as a 75% win rate. An exact sign test puts it nowhere near significance — this is a coin landing heads three times.',
+    build: () => {
+      const before = onAxis(4, 2, 1);
+      const after = [[0,0,2,0,0,0,0],[0,0,2,0,0,0,0],[0,0,2,0,0,0,0],[0,0,0,0,0,0,0]];
+      return [mk('v1.0', '1.0', before), mk('v2.0', '2.0', after)];
+    },
+  },
+  {
+    name: 'The corpus changed (REFUSED)',
+    desc: 'Someone added two prompts and dropped one between runs. Every step was reasonable; the comparison is meaningless. Nothing in an ordinary pipeline would say so.',
+    build: () => {
+      const a = mk('v1.0', '1.0', onAxis(6, 2, 1));
+      const b = makeRun({ label: 'v2.0', model: 'example-model-a', modelVersion: '2.0', rubricFingerprint: FP,
+        items: [...onAxis(5, 2, 2).map((v, k) => ({ id: 'item-' + k, vector: v, met: defaultMet(v) })),
+                { id: 'item-new-a', vector: [0,0,2,0,0,0,0], met: ['COM-01','COM-02'] },
+                { id: 'item-new-b', vector: [0,0,2,0,0,0,0], met: ['COM-01','COM-02'] }] });
+      return [a, b];
+    },
+  },
+  {
+    name: 'The rubric changed (REFUSED)',
+    desc: 'Four criteria were added between runs. The scores are on different scales, so the difference between them is not a measurement at all.',
+    build: () => [mk('v1.0', '1.0', onAxis(10, 2, 1)), mk('v2.0', '2.0', onAxis(10, 2, 2), null, 'ffffffffffffffff')],
+  },
+];
+
+SCENARIOS.forEach((s, i) => $('#scenario').appendChild(Object.assign(el('option', null, s.name), { value: String(i) })));
+$('#scenario').onchange = () => { $('#desc').textContent = SCENARIOS[+$('#scenario').value].desc; $('#out').innerHTML = ''; };
+$('#desc').textContent = SCENARIOS[0].desc;
+
+$('#run').onclick = () => {
+  const s = SCENARIOS[+$('#scenario').value];
+  const [before, after] = s.build();
+  const out = $('#out'); out.innerHTML = '';
+
+  let cmp;
+  try { cmp = compare(before, after); }
+  catch (e) {
+    const box = el('div', 'refused');
+    box.appendChild(el('div', 'k', 'COMPARISON REFUSED'));
+    box.appendChild(el('div', 's', e.message));
+    out.appendChild(box);
+    const note = el('p', 'note');
+    note.textContent = 'Nothing was reported, because there is nothing here that can honestly be reported. That refusal is the feature — a plausible wrong number goes into a slide deck and never comes back out.';
+    out.appendChild(note);
+    return;
+  }
+
+  const g = gateComparison(cmp);
+
+  // the reading first — the sentence a person can actually use
+  const rd = el('div', 'reading ' + (g.clean ? 'good' : 'bad'));
+  rd.appendChild(el('div', 'k', 'READING'));
+  rd.appendChild(el('div', 's', g.reading));
+  out.appendChild(rd);
+
+  // headline stats
+  const stats = el('div', 'stats');
+  const stat = (n, l, cls) => { const d = el('div', 'stat'); d.appendChild(el('div', 'n ' + (cls || ''), n)); d.appendChild(el('div', 'l', l)); return d; };
+  stats.appendChild(stat((cmp.net >= 0 ? '+' : '') + cmp.net, 'net', cmp.net > 0 ? 'up' : cmp.net < 0 ? 'down' : 'same'));
+  stats.appendChild(stat(String(cmp.churn), 'gross movement'));
+  stats.appendChild(stat(String(cmp.improved), 'improved', 'up'));
+  stats.appendChild(stat(String(cmp.regressed), 'regressed', 'down'));
+  stats.appendChild(stat(String(cmp.unchanged), 'unchanged', 'same'));
+  stats.appendChild(stat(cmp.coherence.toFixed(2), 'coherence'));
+  stats.appendChild(stat(cmp.signTest.p === null ? '—' : cmp.signTest.p < 0.001 ? '<0.001' : cmp.signTest.p.toFixed(3), 'sign test p'));
+  out.appendChild(stats);
+
+  // holes
+  if (g.clean) out.appendChild(Object.assign(el('div', 'clean', '✓ No holes — this comparison can be read at face value.'), { style: 'margin-top:18px' }));
+  else {
+    out.appendChild(Object.assign(el('h3', null, `${g.holes.length} hole${g.holes.length === 1 ? '' : 's'}`), { style: 'font-size:15px;margin:22px 0 2px' }));
+    for (const h of g.holes) {
+      const soft = h.kind === HOLE.DROPPED || h.kind === HOLE.NARROW;
+      const d = el('div', 'hole' + (soft ? ' warn' : ''));
+      d.appendChild(el('div', 'kind', [h.kind, h.axis, h.id].filter(Boolean).join(' · ')));
+      d.appendChild(el('div', 'd', h.detail));
+      out.appendChild(d);
+    }
+  }
+
+  // per-axis movement — the thing an aggregate hides
+  out.appendChild(Object.assign(el('h3', null, 'Movement by axis'), { style: 'font-size:15px;margin:26px 0 0' }));
+  const t = el('table');
+  t.innerHTML = '<thead><tr><th>Axis</th><th style="text-align:right">Before</th><th style="text-align:right">After</th><th style="text-align:right">Delta</th><th style="width:38%">&nbsp;</th></tr></thead>';
+  const tb = el('tbody');
+  const maxAbs = Math.max(1, ...cmp.perAxis.map(a => Math.abs(a.delta)));
+  cmp.perAxis.forEach((a, i) => {
+    const tr = el('tr');
+    const nm = el('td'); nm.innerHTML = `<span style="color:${AXC(i)}">●</span> ${a.axis}`;
+    tr.appendChild(nm);
+    tr.appendChild(el('td', 'n', String(a.before)));
+    tr.appendChild(el('td', 'n', String(a.after)));
+    const dv = el('td', 'n ' + (a.delta > 0 ? 'up' : a.delta < 0 ? 'down' : 'same'), (a.delta > 0 ? '+' : '') + a.delta);
+    tr.appendChild(dv);
+    const bc = el('td'); const bar = el('div', 'bar'); const fill = el('i');
+    const w = (Math.abs(a.delta) / maxAbs) * 50;
+    fill.style.cssText = a.delta >= 0
+      ? `left:50%;width:${w}%;background:var(--good)`
+      : `right:50%;width:${w}%;background:var(--bad)`;
+    bar.appendChild(fill); bc.appendChild(bar); tr.appendChild(bc);
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  const sc = el('div', 'scroll'); sc.appendChild(t); out.appendChild(sc);
+
+  // criterion flips — the actionable part
+  if (cmp.flips.length) {
+    out.appendChild(Object.assign(el('h3', null, 'Criteria that moved'), { style: 'font-size:15px;margin:26px 0 0' }));
+    const ft = el('table');
+    ft.innerHTML = '<thead><tr><th>Criterion</th><th style="text-align:right">Lost on</th><th style="text-align:right">Gained on</th><th style="text-align:right">Net</th></tr></thead>';
+    const ftb = el('tbody');
+    for (const f of cmp.flips.slice(0, 12)) {
+      const tr = el('tr');
+      tr.appendChild(el('td', 'mono', f.id));
+      tr.appendChild(el('td', 'n', String(f.lost)));
+      tr.appendChild(el('td', 'n', String(f.gained)));
+      tr.appendChild(el('td', 'n ' + (f.net > 0 ? 'up' : f.net < 0 ? 'down' : 'same'), (f.net > 0 ? '+' : '') + f.net));
+      ftb.appendChild(tr);
+    }
+    ft.appendChild(ftb);
+    const fsc = el('div', 'scroll'); fsc.appendChild(ft); out.appendChild(fsc);
+  }
+
+  const foot = el('p', 'note');
+  foot.textContent = `${cmp.before.label} → ${cmp.after.label} · ${cmp.paired} paired items · rubric ${cmp.before.rubricFingerprint} · corpus ${cmp.before.corpusId}. Illustrative figures against a fictional system.`;
+  out.appendChild(foot);
+};
+
+$('#run').click();
+</script>
+</body>
+</html>
